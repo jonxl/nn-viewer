@@ -1,7 +1,7 @@
 """Slider panel module for UI components."""
 
-from matplotlib.widgets import Slider
-from typing import Dict, List, Callable, Optional, Tuple, Any
+from matplotlib.widgets import Slider, RangeSlider
+from typing import Dict, List, Callable, Optional, Tuple, Any, Union
 
 
 class SliderConfig:
@@ -43,6 +43,40 @@ class SliderConfig:
         self.valinit = valinit
         self.valstep = valstep
         self.position = position
+
+
+class RangeSliderConfig(SliderConfig):
+    """Configuration for a range slider widget with two handles.
+
+    Parameters:
+    -----------
+    name : str
+        Unique identifier for the slider
+    label : str
+        Display label for the slider
+    valmin : float
+        Minimum value
+    valmax : float
+        Maximum value
+    valinit : tuple of (float, float)
+        Initial values (low, high)
+    valstep : float, optional
+        Step size for values. Default: 1
+    position : tuple, optional
+        Position [left, bottom, width, height] for the slider axis
+    """
+
+    def __init__(
+        self,
+        name: str,
+        label: str,
+        valmin: float,
+        valmax: float,
+        valinit: Tuple[float, float],
+        valstep: Optional[float] = 1,
+        position: Tuple[float, float, float, float] = (0.25, 0.1, 0.65, 0.03),
+    ):
+        super().__init__(name, label, valmin, valmax, valinit, valstep, position)
 
 
 class SliderPanel:
@@ -97,16 +131,27 @@ class SliderPanel:
             # Create slider axis
             ax_slider = self.fig.add_axes(pos, facecolor=self.colors["widget_bg"])
 
-            # Create the slider widget
-            slider = Slider(
-                ax=ax_slider,
-                label=config.label,
-                valmin=config.valmin,
-                valmax=config.valmax,
-                valinit=config.valinit,
-                valstep=config.valstep,
-                color=self.colors["widget_active"],
-            )
+            # Create the appropriate slider widget
+            if isinstance(config, RangeSliderConfig):
+                slider = RangeSlider(
+                    ax=ax_slider,
+                    label=config.label,
+                    valmin=config.valmin,
+                    valmax=config.valmax,
+                    valinit=config.valinit,
+                    valstep=config.valstep,
+                    color=self.colors["widget_active"],
+                )
+            else:
+                slider = Slider(
+                    ax=ax_slider,
+                    label=config.label,
+                    valmin=config.valmin,
+                    valmax=config.valmax,
+                    valinit=config.valinit,
+                    valstep=config.valstep,
+                    color=self.colors["widget_active"],
+                )
 
             # Apply text styling
             slider.label.set_color(self.colors["text"])

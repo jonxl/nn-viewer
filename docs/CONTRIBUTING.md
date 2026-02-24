@@ -12,7 +12,6 @@ nn-viewer/
 ├── visualizer.py        # Base visualization framework (GeneralizedVisualizer, PlotConfig)
 ├── views/
 │   ├── __init__.py      # View exports
-│   ├── power_series.py  # PowerSeriesVisualizer for multi-parameter coefficient analysis
 │   └── ode_results.py   # ODEResultsVisualizer for real PINN training runs
 ├── theme/
 │   ├── __init__.py      # Theme exports

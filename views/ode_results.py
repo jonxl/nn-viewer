@@ -8,7 +8,7 @@ from math import factorial
 from typing import Dict, List, Optional, Tuple
 
 from visualizer import GeneralizedVisualizer, PlotConfig
-from ui import SliderConfig
+from ui import RangeSliderConfig
 from theme import Theme
 
 
@@ -25,23 +25,25 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     self,
     results_json_path: str,
     loss_csv_path: str,
-    x_range: Tuple[float, float] = (-1, 1),
+    x_range: Tuple[float, float] = (0, 1),
     num_points: int = 1000,
     initial_iteration: int = 1000,
     theme: Optional[Theme] = None,
   ):
     # Load results.json -> iteration_to_snapshot dict
     with open(results_json_path, "r") as f:
-      snapshots = json.load(f)
+      data = json.load(f)
+
+    metadata = data["metadata"]
+    snapshots = data["milestones"]
 
     self.iteration_to_snapshot: Dict[int, dict] = {
       entry["iteration"]: entry for entry in snapshots
     }
 
-    # Extract constant data from first entry
-    first = snapshots[0]
-    self.benchmark_coefficients = np.array(first["benchmark_coefficients"])
-    self.alpha_matrix = first["alpha_matrix"]
+    # Extract constant data from metadata
+    self.benchmark_coefficients = np.array(metadata["benchmark_coefficients"])
+    self.alpha_matrix = metadata["ode_matrix"]
 
     # Load loss CSV
     self.loss_data = self._load_loss_csv(loss_csv_path)
@@ -49,9 +51,10 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     # Precompute x data
     self.x_data = np.linspace(x_range[0], x_range[1], num_points)
 
-    # Compute analytical ODE solution (static)
-    self._setup_analytical_solution()
-    self.analytical_solution = self._compute_analytical_solution(self.x_data)
+    # # Compute analytical ODE solution (static)
+    # self._setup_analytical_solution()
+    # self.analytical_solution = self._compute_analytical_solution(self.x_data)
+    self.analytical_solution = None
 
     # Compute benchmark power series (static)
     self.benchmark_series = self._evaluate_factorial_power_series(
@@ -64,14 +67,14 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     iter_max = iterations[-1]
     iter_step = iterations[1] - iterations[0] if len(iterations) > 1 else 100
 
-    # Slider config
+    # Slider config — range slider for iteration window [start, end]
     slider_configs = [
-      SliderConfig(
+      RangeSliderConfig(
         name="iteration",
         label="Iteration",
         valmin=iter_min,
         valmax=iter_max,
-        valinit=initial_iteration,
+        valinit=(iter_min, initial_iteration),
         valstep=iter_step,
       ),
     ]
@@ -89,7 +92,7 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
       layout=(4, 2),
       figsize=(20, 16),
       main_title="PINN ODE Training Analysis",
-      hide_empty_plots=False,
+      hide_empty_plots=True,
       theme=theme,
     )
 
@@ -120,27 +123,28 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
       "supervised": np.array(supervised),
     }
 
-  def _setup_analytical_solution(self):
-    """Set up the analytical solution from the ODE coefficients."""
-    a2, a1, a0 = self.alpha_matrix
-    # Characteristic equation: a2*r^2 + a1*r + a0 = 0
-    discriminant = a1**2 - 4 * a2 * a0
+  # def _setup_analytical_solution(self):
+  #   """Set up the analytical solution from the ODE coefficients."""
+  #   # ODE: u'' + a1*u' + a0*u = 0  (leading coefficient a2=1 is implicit)
+  #   a1, a0 = self.alpha_matrix
+  #   # Characteristic equation: r^2 + a1*r + a0 = 0
+  #   discriminant = a1**2 - 4 * a0
+  #
+  #   sqrt_disc = np.sqrt(abs(discriminant))
+  #   self.r1 = (-a1 + sqrt_disc) / 2
+  #   self.r2 = (-a1 - sqrt_disc) / 2
+  #
+  #   # Initial conditions from benchmark coefficients
+  #   u0 = float(self.benchmark_coefficients[0])
+  #   u_prime0 = float(self.benchmark_coefficients[1])
+  #
+  #   # Solve: c1 + c2 = u0, c1*r1 + c2*r2 = u_prime0
+  #   self.c1 = (u_prime0 - u0 * self.r2) / (self.r1 - self.r2)
+  #   self.c2 = u0 - self.c1
 
-    sqrt_disc = np.sqrt(abs(discriminant))
-    self.r1 = (-a1 + sqrt_disc) / (2 * a2)
-    self.r2 = (-a1 - sqrt_disc) / (2 * a2)
-
-    # Initial conditions from benchmark coefficients
-    u0 = float(self.benchmark_coefficients[0])
-    u_prime0 = float(self.benchmark_coefficients[1])
-
-    # Solve: c1 + c2 = u0, c1*r1 + c2*r2 = u_prime0
-    self.c1 = (u_prime0 - u0 * self.r2) / (self.r1 - self.r2)
-    self.c2 = u0 - self.c1
-
-  def _compute_analytical_solution(self, x: np.ndarray) -> np.ndarray:
-    """Compute exact analytical ODE solution at points x."""
-    return self.c1 * np.exp(self.r1 * x) + self.c2 * np.exp(self.r2 * x)
+  # def _compute_analytical_solution(self, x: np.ndarray) -> np.ndarray:
+  #   """Compute exact analytical ODE solution at points x."""
+  #   return self.c1 * np.exp(self.r1 * x) + self.c2 * np.exp(self.r2 * x)
 
   def _evaluate_factorial_power_series(
     self, coefficients: np.ndarray, x: np.ndarray
@@ -166,9 +170,9 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
         xlabel="x",
         ylabel="u(x)",
         plot_type="line",
-        colors=["#4fc3f7", "#66bb6a", "#ff8a65"],
-        linestyles=["--", "-.", "-"],
-        labels=["Analytical Solution", "Benchmark Series", "PINN Series"],
+        colors=["#66bb6a", "#ff8a65", "#4fc3f7"],
+        linestyles=["-.", "-", "--"],
+        labels=["Benchmark Series", "PINN Series", "Analytical Solution"],
       ),
       PlotConfig(
         data_key="function_error",
@@ -239,33 +243,40 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     ]
 
   def _get_plot_data(self, data_key: str):
-    """Retrieve data for plotting based on current iteration slider value."""
-    iteration = int(round(self.slider_values["iteration"]))
-    snapshot = self.iteration_to_snapshot.get(iteration)
+    """Retrieve data for plotting based on current iteration range slider."""
+    iter_start, iter_end = self.slider_values["iteration"]
+    iter_start = int(round(iter_start))
+    iter_end = int(round(iter_end))
+
+    # Non-loss plots use the right handle for snapshot selection
+    snapshot = self.iteration_to_snapshot.get(iter_end)
 
     if data_key == "function_comparison":
       if snapshot is None:
         return None
-      pinn_coeffs = np.array(snapshot["pinn_coefficients"])
+      pinn_coeffs = np.array(snapshot["coefficients"])
       pinn_series = self._evaluate_factorial_power_series(pinn_coeffs, self.x_data)
-      return {
-        "analytical": {"x": self.x_data, "y": self.analytical_solution},
+      result = {
         "benchmark": {"x": self.x_data, "y": self.benchmark_series},
         "pinn": {"x": self.x_data, "y": pinn_series},
       }
+      if self.analytical_solution is not None:
+        result["analytical"] = {"x": self.x_data, "y": self.analytical_solution}
+      return result
 
     elif data_key == "function_error":
       if snapshot is None:
         return None
-      pinn_coeffs = np.array(snapshot["pinn_coefficients"])
+      pinn_coeffs = np.array(snapshot["coefficients"])
       pinn_series = self._evaluate_factorial_power_series(pinn_coeffs, self.x_data)
-      error = np.abs(self.analytical_solution - pinn_series)
+      reference = self.analytical_solution if self.analytical_solution is not None else self.benchmark_series
+      error = np.abs(reference - pinn_series)
       return {"error": {"x": self.x_data, "y": error}}
 
     elif data_key == "coefficient_comparison":
       if snapshot is None:
         return None
-      pinn_coeffs = np.array(snapshot["pinn_coefficients"])
+      pinn_coeffs = np.array(snapshot["coefficients"])
       min_len = min(len(self.benchmark_coefficients), len(pinn_coeffs))
       indices = np.arange(min_len)
       return {
@@ -276,7 +287,7 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     elif data_key == "coefficient_error":
       if snapshot is None:
         return None
-      pinn_coeffs = np.array(snapshot["pinn_coefficients"])
+      pinn_coeffs = np.array(snapshot["coefficients"])
       min_len = min(len(self.benchmark_coefficients), len(pinn_coeffs))
       indices = np.arange(min_len)
       error = np.abs(self.benchmark_coefficients[:min_len] - pinn_coeffs[:min_len])
@@ -286,10 +297,20 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
       loss_type = data_key[5:]  # "total", "bc", "pde", "supervised"
       if loss_type not in self.loss_data:
         return None
-      # Dynamic truncation: show loss up to current iteration
-      mask = self.loss_data["iteration"] <= iteration
+      # Window: show loss within [iter_start, iter_end]
+      mask = (
+        (self.loss_data["iteration"] >= iter_start)
+        & (self.loss_data["iteration"] <= iter_end)
+      )
       x_vals = self.loss_data["iteration"][mask]
       y_vals = self.loss_data[loss_type][mask]
       return {loss_type: {"x": x_vals, "y": y_vals}}
 
     return None
+
+  def _update_plot(self, ax, config, plot_idx):
+    """Override to pin x-axis limits on loss plots to the iteration window."""
+    super()._update_plot(ax, config, plot_idx)
+    if config.data_key.startswith("loss_") and ax.get_visible():
+      iter_start, iter_end = self.slider_values["iteration"]
+      ax.set_xlim(int(round(iter_start)), int(round(iter_end)))

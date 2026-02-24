@@ -7,18 +7,18 @@ The Julia PINN training code now outputs `results/results.json` (1000 snapshots 
 @architect I see now that visualizer can become very monolithic if we go down this path of adding more classes. Therefore, we should make a views dir with these classes.
 
 @claude Agreed. We'll create a `views/` directory. `GeneralizedVisualizer` + `PlotConfig` + `setup_backend` stay in `visualizer.py` as the shared base. Subclasses move into `views/`:
-- `views/__init__.py` — exports both visualizer classes
-- `views/power_series.py` — move existing `PowerSeriesVisualizer` here
+- `views/__init__.py` — exports `ODEResultsVisualizer`
 - `views/ode_results.py` — new `ODEResultsVisualizer`
+
+@claude-opus-4.6 `PowerSeriesVisualizer` was removed as redundant code. Only `ODEResultsVisualizer` remains.
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
-| `views/__init__.py` | **NEW** — export `PowerSeriesVisualizer`, `ODEResultsVisualizer` |
+| `views/__init__.py` | **NEW** — export `ODEResultsVisualizer` |
 | `views/ode_results.py` | **NEW** — `ODEResultsVisualizer` class (~170 lines) |
-| `views/power_series.py` | **NEW** — move `PowerSeriesVisualizer` from `visualizer.py` |
-| `visualizer.py` | Remove `PowerSeriesVisualizer` (keep `GeneralizedVisualizer`, `PlotConfig`, `setup_backend`) |
+| `visualizer.py` | Keep `GeneralizedVisualizer`, `PlotConfig`, `setup_backend` |
 | `main.py` | Update imports to use `views/`, add `example_with_real_ode_data()`, update `__main__` |
 
 No changes to `ui/`, `theme/`, tests. @architect good!
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     example_with_real_ode_data()  # Switch default to real data
 ```
 
-Existing `example_with_loss()` stays intact (can be uncommented to run).
+@claude-opus-4.6 `example_with_loss()` and `PowerSeriesVisualizer` have been removed. Only `example_with_real_ode_data()` remains in `main.py`.
 
 @architect if you add any lines to graphs make sure to make it clear.
 

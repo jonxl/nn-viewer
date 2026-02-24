@@ -7,10 +7,10 @@ An interactive visualization tool for analyzing Physics-Informed Neural Networks
 ## Features
 
 - **Dark/Light/High-Contrast themes** - Choose the visual style that works best for you
-- **Interactive sliders** - Adjust parameters (neurons, hidden layers, Adam iterations)
-- **ODE results visualizer** - Visualize real PINN training runs with an iteration slider, 3-line function comparison (analytical, benchmark series, PINN series), and dynamic loss history that reveals progressively as you slide through iterations
+- **Interactive iteration slider** - Scrub through PINN training snapshots
+- **ODE results visualizer** - Visualize real PINN training runs with an iteration slider, function comparison (benchmark series, PINN series), and dynamic loss history that reveals progressively as you slide through iterations
 - **Multiple synchronized plots**:
-  - ODE solution comparison (analytic vs PINN)
+  - ODE solution comparison (benchmark vs PINN)
   - Coefficient comparison
   - Coefficient and solution error plots
   - Training loss curves (total, BC, PDE, supervised)
@@ -33,69 +33,8 @@ uv sync
 
 ### Quick Start
 
-Run the example visualization:
-
 ```bash
-uv run python main.py
-```
-
-### Using with Your Own Data
-
-#### Power Series Visualizer
-
-```python
-from visualizer import setup_backend
-from views import PowerSeriesVisualizer
-
-# Initialize backend
-setup_backend()
-
-# Your true coefficients from the analytical solution
-true_coeffs = [1.0, 2.0, 1.0, 1.0/6.0, 1.0/60.0]
-
-# Optional: loss data dictionary
-# Keys should match coefficient file keys: "n{neurons}_h{hidden}_a{adam}"
-loss_data = {
-    "n30_h2_a10000": {
-        "iterations": [...],
-        "total_loss": [...],
-        "bc_loss": [...],
-        "pde_loss": [...],
-        "supervised_loss": [...]
-    }
-}
-
-# Create visualizer
-visualizer = PowerSeriesVisualizer(
-    json_file_path='path/to/coefficients.json',
-    true_coefficients=true_coeffs,
-    loss_data=loss_data,  # Optional
-    x_range=(0, 1),
-    num_points=1000,
-    neuron_range=(10, 50),
-    initial_neurons=30
-)
-
-visualizer.show()
-```
-
-#### ODE Results Visualizer
-
-```python
-from visualizer import setup_backend
-from views import ODEResultsVisualizer
-
-setup_backend()
-
-visualizer = ODEResultsVisualizer(
-    results_json_path="results/results.json",
-    loss_csv_path="results/loss.csv",
-    x_range=(-1, 1),
-    num_points=1000,
-    initial_iteration=1000,
-)
-
-visualizer.show()
+uv run python main.py --results path/to/results.json --loss path/to/loss.csv
 ```
 
 ### Using Themes
@@ -124,7 +63,6 @@ nn-viewer/
 ├── visualizer.py        # Base visualization framework (GeneralizedVisualizer, PlotConfig)
 ├── views/
 │   ├── __init__.py      # View exports
-│   ├── power_series.py  # PowerSeriesVisualizer for multi-parameter coefficient analysis
 │   └── ode_results.py   # ODEResultsVisualizer for real PINN training runs
 ├── theme/
 │   ├── __init__.py      # Theme exports
@@ -145,7 +83,7 @@ nn-viewer/
 
 ## Controls
 
-- **Sliders**: Adjust neurons, hidden layers, and Adam iterations to view different training configurations. In ODE results mode, use the Iteration slider to scrub through training snapshots.
+- **Sliders**: Use the Iteration slider to scrub through training snapshots.
 - **Legend (☰)**: Collapsible toggle button panel — click the hamburger menu to expand/collapse, click individual buttons to show/hide data series
 - **Reset**: Restore sliders to their initial values
 
