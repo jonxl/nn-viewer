@@ -61,11 +61,33 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
       self.benchmark_coefficients, self.x_data
     )
 
-    # Determine iteration range from data
-    iterations = sorted(self.iteration_to_snapshot.keys())
-    iter_min = iterations[0]
-    iter_max = iterations[-1]
-    iter_step = iterations[1] - iterations[0] if len(iterations) > 1 else 100
+    # Determine iteration range from both loss data and milestones so the
+    # slider covers the full training history, not just milestone snapshots
+    milestone_iters = sorted(self.iteration_to_snapshot.keys())
+    loss_iters = list(self.loss_data.get("iteration", []))
+
+    if milestone_iters and len(loss_iters):
+      iter_min = int(min(milestone_iters[0], loss_iters[0]))
+      iter_max = int(max(milestone_iters[-1], loss_iters[-1]))
+    elif milestone_iters:
+      iter_min = int(milestone_iters[0])
+      iter_max = int(milestone_iters[-1])
+    elif len(loss_iters):
+      iter_min = int(loss_iters[0])
+      iter_max = int(loss_iters[-1])
+    else:
+      iter_min = 0
+      iter_max = max(initial_iteration, 2000)
+
+    if len(loss_iters) > 1:
+      iter_step = int(np.median(np.diff(loss_iters)))
+    elif len(milestone_iters) > 1:
+      iter_step = milestone_iters[1] - milestone_iters[0]
+    else:
+      iter_step = 100
+
+    # Clamp the initial window end inside the valid range
+    init_end = min(max(initial_iteration, iter_min + iter_step), iter_max)
 
     # Slider config — range slider for iteration window [start, end]
     slider_configs = [
@@ -74,7 +96,7 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
         label="Iteration",
         valmin=iter_min,
         valmax=iter_max,
-        valinit=(iter_min, initial_iteration),
+        valinit=(iter_min, init_end),
         valstep=iter_step,
       ),
     ]
@@ -248,8 +270,15 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     iter_start = int(round(iter_start))
     iter_end = int(round(iter_end))
 
-    # Non-loss plots use the right handle for snapshot selection
-    snapshot = self.iteration_to_snapshot.get(iter_end)
+    # Non-loss plots use the right handle for snapshot selection:
+    # latest milestone at or below iter_end (milestones are sparser than
+    # the slider step, so an exact match is rare)
+    snapshot = None
+    for it in sorted(self.iteration_to_snapshot.keys()):
+      if it <= iter_end:
+        snapshot = self.iteration_to_snapshot[it]
+      else:
+        break
 
     if data_key == "function_comparison":
       if snapshot is None:
@@ -313,4 +342,7 @@ class ODEResultsVisualizer(GeneralizedVisualizer):
     super()._update_plot(ax, config, plot_idx)
     if config.data_key.startswith("loss_") and ax.get_visible():
       iter_start, iter_end = self.slider_values["iteration"]
-      ax.set_xlim(int(round(iter_start)), int(round(iter_end)))
+      lo, hi = int(round(iter_start)), int(round(iter_end))
+      if lo >= hi:
+        hi = lo + 1
+      ax.set_xlim(lo, hi)
